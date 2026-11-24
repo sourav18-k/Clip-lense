@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Loader2, RefreshCw, TrendingUp, X } from 'lucide-react';
 import type { TrendingVideoItem } from '../types/video';
 import { SafeImage } from './SafeImage';
+import { safeReadJson } from '../utils/safeJson';
 
 interface TrendingModalProps {
   isOpen: boolean;
@@ -27,9 +28,9 @@ export function TrendingModal({ isOpen, onClose, onInspectVideo }: TrendingModal
     setError(null);
     try {
       const resp = await fetch(`/api/trending?category=${encodeURIComponent(targetCategory)}`);
-      const data = (await resp.json()) as { items?: TrendingVideoItem[]; error?: string };
-      if (!resp.ok) {
-        throw new Error(data.error || 'Could not load trending videos.');
+      const data = await safeReadJson<{ items?: TrendingVideoItem[]; error?: string }>(resp);
+      if (!resp.ok || !data) {
+        throw new Error(data?.error || 'Could not load trending videos.');
       }
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (err) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Gamepad2, Loader2, RotateCcw, Trophy, X } from 'lucide-react';
 import type { TrendingVideoItem, VideoDetails } from '../types/video';
 import { SafeImage } from './SafeImage';
+import { safeReadJson } from '../utils/safeJson';
 
 interface CreatorGameModalProps {
   isOpen: boolean;
@@ -56,9 +57,9 @@ export function CreatorGameModal({
 
     try {
       const resp = await fetch('/api/trending?category=all');
-      const data = (await resp.json()) as { items?: TrendingVideoItem[]; error?: string };
-      if (!resp.ok) {
-        throw new Error(data.error || 'Could not load game deck.');
+      const data = await safeReadJson<{ items?: TrendingVideoItem[]; error?: string }>(resp);
+      if (!resp.ok || !data) {
+        throw new Error(data?.error || 'Could not load game deck.');
       }
 
       const pool = new Map<string, GameCard>();

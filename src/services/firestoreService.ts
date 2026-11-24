@@ -318,18 +318,21 @@ export async function listUserSavedVideos(uid: string): Promise<VideoDetails[]> 
     const q = query(
       collection(db, 'users', uid, 'savedVideos'),
       where('uid', '==', uid),
-      orderBy('savedAt', 'desc'),
-      limit(25)
+      limit(50)
     );
     const snap = await getDocs(q);
-    const items: VideoDetails[] = [];
+    const entries: Array<{ sortMs: number; video: VideoDetails }> = [];
     snap.forEach((docSnap) => {
       const data = docSnap.data();
       if (data.videoSnapshot && typeof data.videoSnapshot === 'object') {
-        items.push(data.videoSnapshot as VideoDetails);
+        const video = data.videoSnapshot as VideoDetails;
+        const tsSource = data.savedAt ?? data.updatedAt ?? video.fetchedAt;
+        const sortMs = Date.parse(toIsoString(tsSource)) || 0;
+        entries.push({ sortMs, video });
       }
     });
-    return items;
+    entries.sort((a, b) => b.sortMs - a.sortMs);
+    return entries.slice(0, 25).map((entry) => entry.video);
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
   }
@@ -425,6 +428,8 @@ export async function logUserActivityAndCounter(
         [counterField]: increment(1),
         lastActiveAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      }).catch(() => {
+        // Non-fatal if user doc was provisioned with partial schema fields
       });
     }
   } catch (err) {

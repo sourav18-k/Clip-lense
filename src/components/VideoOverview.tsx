@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Check,
   Copy,
@@ -57,6 +57,13 @@ export function VideoOverview({
   const [descExpanded, setDescExpanded] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState('');
+
+  useEffect(() => {
+    setShowPlayer(false);
+    setDescExpanded(false);
+    setCopiedKey(null);
+    setTagFilter('');
+  }, [video.videoId]);
 
   const bestThumb =
     video.thumbnails.find((t) => t.available) ??

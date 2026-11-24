@@ -55,6 +55,7 @@ import { ToolsHub } from './components/ToolsHub';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { TrendingModal } from './components/TrendingModal';
 import { CreatorGameModal } from './components/CreatorGameModal';
+import { safeReadJson } from './utils/safeJson';
 
 const LazyAdminPanel = lazy(() =>
   import('./components/AdminPanel').then((mod) => ({ default: mod.AdminPanel }))
@@ -155,7 +156,7 @@ export default function App() {
 
     void Promise.allSettled([
       fetch('/api/public-config', { cache: 'no-store' }).then((res) =>
-        res.ok ? (res.json() as Promise<PublicAppConfig>) : null
+        res.ok ? safeReadJson<PublicAppConfig>(res) : null
       ),
       fetchPublicConfigFromFirestore(),
       fetchPaymentConfig().catch(() => null),
@@ -431,9 +432,9 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: trimmed }),
         });
-        const chData = (await chResp.json()) as ChannelLookupResponse & { error?: string };
-        if (!chResp.ok) {
-          throw new Error(chData.error || 'Could not retrieve channel details.');
+        const chData = await safeReadJson<ChannelLookupResponse & { error?: string }>(chResp);
+        if (!chResp.ok || !chData) {
+          throw new Error(chData?.error || 'Could not retrieve channel details.');
         }
 
         if (chData.latestVideoUrl) {
@@ -442,8 +443,8 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: chData.latestVideoUrl }),
           });
-          if (vidResp.ok) {
-            const vidData = (await vidResp.json()) as VideoDetails;
+          const vidData = vidResp.ok ? await safeReadJson<VideoDetails>(vidResp) : null;
+          if (vidData) {
             const merged: VideoDetails = {
               ...vidData,
               channel: {
@@ -462,6 +463,54 @@ export default function App() {
           }
         }
 
+        const firstListVideo = chData.videos?.[0];
+        if (firstListVideo) {
+          const fallbackVideo: VideoDetails = {
+            videoId: firstListVideo.videoId,
+            url: firstListVideo.url,
+            embedUrl: `https://www.youtube.com/embed/${firstListVideo.videoId}`,
+            title: firstListVideo.title,
+            description: chData.channel.description || '',
+            durationSeconds: 0,
+            durationFormatted: firstListVideo.duration || '0:00',
+            durationReadable: firstListVideo.duration || '0s',
+            tags: [],
+            hashtags: [],
+            category: null,
+            publishDate: null,
+            viewCount: firstListVideo.viewCount ?? null,
+            likeCount: null,
+            isLiveContent: false,
+            isShorts: false,
+            familySafe: null,
+            thumbnails: [
+              {
+                key: 'hqdefault',
+                label: 'High Quality',
+                width: 480,
+                height: 360,
+                url: `https://i.ytimg.com/vi/${firstListVideo.videoId}/hqdefault.jpg`,
+                proxyUrl: `/api/image-proxy?url=${encodeURIComponent(
+                  `https://i.ytimg.com/vi/${firstListVideo.videoId}/hqdefault.jpg`
+                )}`,
+                downloadUrl: `/api/download-thumbnail?videoId=${encodeURIComponent(
+                  firstListVideo.videoId
+                )}&quality=hqdefault`,
+                available: true,
+              },
+            ],
+            channel: chData.channel,
+            relatedVideos: [],
+            fetchedAt: new Date().toISOString(),
+          };
+          setVideo(fallbackVideo);
+          setUrlInput(chData.channel.url);
+          persistVideoInspection(fallbackVideo);
+          reportEvent('video_inspect');
+          setActiveTab('channel');
+          return;
+        }
+
         throw new Error('Channel found, but no public uploads are available to inspect.');
       }
 
@@ -471,10 +520,10 @@ export default function App() {
         body: JSON.stringify({ url: trimmed }),
       });
 
-      const data = (await response.json()) as VideoDetails & { error?: string };
+      const data = await safeReadJson<VideoDetails & { error?: string }>(response);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Could not retrieve video details.');
+      if (!response.ok || !data) {
+        throw new Error(data?.error || 'Could not retrieve video details.');
       }
 
       setVideo(data);

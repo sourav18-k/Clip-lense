@@ -1202,17 +1202,31 @@ const ALLOWED_THUMB_QUALITIES = new Set([
 const VIDEO_ID_REGEX = /^[A-Za-z0-9_-]{11}$/;
 const CHANNEL_ID_REGEX = /^UC[A-Za-z0-9_-]{20,24}$/;
 
+const YT_CONSENT_COOKIE = 'SOCS=CAI; CONSENT=PENDING+999';
+
 const BROWSER_HEADERS = {
   'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
   'Accept-Language': 'en-US,en;q=0.9',
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  Cookie: YT_CONSENT_COOKIE,
+};
+
+const MOBILE_BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36',
+  'Accept-Language': 'en-US,en;q=0.9',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  Cookie: YT_CONSENT_COOKIE,
 };
 
 const BOT_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
   'Accept-Language': 'en-US,en;q=0.9',
+  Cookie: YT_CONSENT_COOKIE,
 };
+
+const INNERTUBE_CLIENT_VERSION = '2.20261123.00.00';
 
 const GENERIC_YT_META_KEYWORDS = new Set([
   'video',
@@ -1230,12 +1244,16 @@ async function fetchNextApi(videoId: string): Promise<Record<string, unknown> | 
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': BROWSER_HEADERS['User-Agent'],
+        'Accept-Language': 'en-US,en;q=0.9',
+        Origin: 'https://www.youtube.com',
+        Referer: `https://www.youtube.com/watch?v=${videoId}`,
+        Cookie: YT_CONSENT_COOKIE,
       },
       body: JSON.stringify({
         context: {
           client: {
             clientName: 'WEB',
-            clientVersion: '2.20241120.01.00',
+            clientVersion: INNERTUBE_CLIENT_VERSION,
             hl: 'en',
             gl: 'US',
           },
@@ -1609,41 +1627,219 @@ async function buildThumbnails(videoId: string): Promise<ThumbnailVariant[]> {
     .map((r) => r.value);
 }
 
+interface WatchHtmlResult {
+  ok: boolean;
+  html: string;
+}
+
+interface EmbedFallbackData {
+  title: string | null;
+  channelName: string | null;
+  channelUrl: string | null;
+  avatarUrl: string | null;
+  durationSeconds: number;
+  playabilityStatus: string | null;
+  playabilityReason: string | null;
+}
+
+interface OembedFallbackData {
+  title?: string;
+  author_name?: string;
+  author_url?: string;
+}
+
+async function tryFetchHtml(url: string, headers: Record<string, string>, timeoutMs = 8500): Promise<WatchHtmlResult> {
+  try {
+    const resp = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!resp.ok) {
+      return { ok: false, html: '' };
+    }
+    const html = await resp.text();
+    return { ok: html.length > 0, html };
+  } catch {
+    return { ok: false, html: '' };
+  }
+}
+
+function hasEmbeddedWatchData(html: string): boolean {
+  if (!html) return false;
+  return (
+    html.includes('ytInitialPlayerResponse') ||
+    html.includes('ytInitialData') ||
+    html.includes('<meta property="og:title"')
+  );
+}
+
+async function fetchWatchHtml(videoId: string): Promise<WatchHtmlResult> {
+  const desktopUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en`;
+  const mobileUrl = `https://m.youtube.com/watch?v=${videoId}&hl=en`;
+
+  const desktop = await tryFetchHtml(desktopUrl, BROWSER_HEADERS, 8500);
+  if (desktop.ok && desktop.html.includes('ytInitialPlayerResponse')) {
+    return desktop;
+  }
+
+  const mobile = await tryFetchHtml(mobileUrl, MOBILE_BROWSER_HEADERS, 8500);
+  if (mobile.ok && mobile.html.includes('ytInitialPlayerResponse')) {
+    return mobile;
+  }
+
+  const bot = await tryFetchHtml(desktopUrl, BOT_HEADERS, 8000);
+  if (bot.ok && hasEmbeddedWatchData(bot.html)) {
+    return bot;
+  }
+
+  if (desktop.ok && hasEmbeddedWatchData(desktop.html)) return desktop;
+  if (mobile.ok && hasEmbeddedWatchData(mobile.html)) return mobile;
+  return { ok: desktop.ok || mobile.ok || bot.ok, html: desktop.html || mobile.html || bot.html };
+}
+
+async function fetchEmbedFallback(videoId: string): Promise<EmbedFallbackData | null> {
+  const embedRes = await tryFetchHtml(
+    `https://www.youtube.com/embed/${videoId}?hl=en`,
+    {
+      ...BROWSER_HEADERS,
+      Referer: 'https://www.example.com/',
+    },
+    7000
+  );
+  if (!embedRes.ok || !embedRes.html) return null;
+
+  const match = embedRes.html.match(/"embedded_player_response":"((?:[^"\\]|\\.)*)"/);
+  if (!match) return null;
+
+  try {
+    const unescaped = JSON.parse(`"${match[1]}"`) as string;
+    const data = JSON.parse(unescaped) as Record<string, unknown>;
+    const previewStatus = data.previewPlayabilityStatus as Record<string, unknown> | undefined;
+    const status = typeof previewStatus?.status === 'string' ? previewStatus.status : null;
+    const reason = typeof previewStatus?.reason === 'string' ? previewStatus.reason : null;
+
+    const preview = (
+      data.embedPreview as Record<string, unknown> | undefined
+    )?.thumbnailPreviewRenderer as Record<string, unknown> | undefined;
+
+    const durationSeconds = Number(preview?.videoDurationSeconds ?? 0) || 0;
+    const overlayDetails = (
+      preview?.videoDetails as Record<string, unknown> | undefined
+    )?.embeddedPlayerOverlayVideoDetailsRenderer as Record<string, unknown> | undefined;
+
+    const collapsed = (
+      overlayDetails?.collapsedRenderer as Record<string, unknown> | undefined
+    )?.embeddedPlayerOverlayVideoDetailsCollapsedRenderer as Record<string, unknown> | undefined;
+
+    const titleRuns = (collapsed?.title as Record<string, unknown> | undefined)?.runs;
+    const title = Array.isArray(titleRuns)
+      ? (titleRuns as Array<{ text?: string }>).map((r) => r.text ?? '').join('').trim() || null
+      : null;
+
+    const subtitleRuns = (collapsed?.subtitle as Record<string, unknown> | undefined)?.runs;
+    const channelName = Array.isArray(subtitleRuns)
+      ? (subtitleRuns as Array<{ text?: string }>).map((r) => r.text ?? '').join('').trim() || null
+      : null;
+
+    const expanded = (
+      overlayDetails?.expandedRenderer as Record<string, unknown> | undefined
+    )?.embeddedPlayerOverlayVideoDetailsExpandedRenderer as Record<string, unknown> | undefined;
+    const expandedTitleRuns = (expanded?.title as Record<string, unknown> | undefined)?.runs;
+    const expandedChannelName = Array.isArray(expandedTitleRuns)
+      ? (expandedTitleRuns as Array<{ text?: string }>).map((r) => r.text ?? '').join('').trim() || null
+      : null;
+
+    const channelThumbs = (
+      overlayDetails?.channelThumbnail as Record<string, unknown> | undefined
+    )?.thumbnails;
+    const avatarUrl = pickLargestThumbnail(channelThumbs);
+
+    const navUrl = (
+      (
+        (expanded?.subscribeButton as Record<string, unknown> | undefined)?.subscribeButtonRenderer as
+          | Record<string, unknown>
+          | undefined
+      )?.channelId as string | undefined
+    );
+    const channelUrl = navUrl && CHANNEL_ID_REGEX.test(navUrl)
+      ? `https://www.youtube.com/channel/${navUrl}`
+      : null;
+
+    if (!title && !channelName && !status) return null;
+
+    return {
+      title,
+      channelName: expandedChannelName || channelName,
+      channelUrl,
+      avatarUrl,
+      durationSeconds,
+      playabilityStatus: status,
+      playabilityReason: reason,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchOembedWithFallback(watchUrl: string): Promise<OembedFallbackData | null> {
+  const ytOembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
+  const noembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(watchUrl)}`;
+
+  try {
+    const resp = await fetch(ytOembedUrl, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': BROWSER_HEADERS['User-Agent'],
+      },
+      signal: AbortSignal.timeout(5500),
+    });
+    if (resp.ok) {
+      const json = (await resp.json()) as OembedFallbackData;
+      if (json && typeof json.title === 'string' && json.title.trim()) {
+        return json;
+      }
+    }
+  } catch {
+    // Fall through to secondary oEmbed mirror
+  }
+
+  try {
+    const resp = await fetch(noembedUrl, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': BROWSER_HEADERS['User-Agent'],
+      },
+      signal: AbortSignal.timeout(5500),
+    });
+    if (resp.ok) {
+      const json = (await resp.json()) as OembedFallbackData & { error?: string };
+      if (json && !json.error && typeof json.title === 'string' && json.title.trim()) {
+        return json;
+      }
+    }
+  } catch {
+    // No oEmbed data available
+  }
+
+  return null;
+}
+
 async function fetchVideoDetails(videoId: string, isShortsUrl: boolean): Promise<VideoDetails> {
   const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en`;
-  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
 
-  const [watchResult, nextData, oembedResult, thumbnails] = await Promise.all([
-    fetch(watchUrl, {
-      headers: BOT_HEADERS,
-      signal: AbortSignal.timeout(10000),
-    }),
+  const [watchResult, nextData, embedData, oembedData, thumbnails] = await Promise.all([
+    fetchWatchHtml(videoId),
     fetchNextApi(videoId),
-    fetch(oembedUrl, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(6000),
-    }).catch(() => null),
+    fetchEmbedFallback(videoId),
+    fetchOembedWithFallback(watchUrl),
     buildThumbnails(videoId),
   ]);
 
-  let oembedData: { title?: string; author_name?: string; author_url?: string } | null = null;
-  if (oembedResult && oembedResult.ok) {
-    try {
-      oembedData = (await oembedResult.json()) as {
-        title?: string;
-        author_name?: string;
-        author_url?: string;
-      };
-    } catch {
-      oembedData = null;
-    }
-  }
-
-  if (!watchResult.ok && !oembedData && !nextData) {
+  if (!watchResult.ok && !nextData && !embedData && !oembedData) {
     throw new Error('Could not reach YouTube to retrieve video information.');
   }
 
-  const html = watchResult.ok ? await watchResult.text() : '';
+  const html = watchResult.ok ? watchResult.html : '';
   const playerResponse = html
     ? extractBalancedJson(html, [
         'var ytInitialPlayerResponse = ',
@@ -1683,15 +1879,16 @@ async function fetchVideoDetails(videoId: string, isShortsUrl: boolean): Promise
     (typeof videoDetails.title === 'string' && videoDetails.title) ||
     ((microformat.title as Record<string, unknown> | undefined)?.simpleText as string | undefined) ||
     primaryTitle ||
+    embedData?.title ||
     oembedData?.title ||
     decodeMetaContent(html, 'og:title') ||
     '';
 
   if (!title) {
     const reason =
-      typeof playability.reason === 'string'
-        ? playability.reason
-        : 'Video not found, private, or unavailable.';
+      (typeof playability.reason === 'string' && playability.reason) ||
+      embedData?.playabilityReason ||
+      'Video not found, private, or unavailable.';
     throw new Error(reason);
   }
 
@@ -1707,7 +1904,8 @@ async function fetchVideoDetails(videoId: string, isShortsUrl: boolean): Promise
     decodeMetaContent(html, 'og:description') ||
     '';
 
-  const durationSeconds = Number(videoDetails.lengthSeconds ?? microformat.lengthSeconds ?? 0) || 0;
+  const durationSeconds =
+    Number(videoDetails.lengthSeconds ?? microformat.lengthSeconds ?? embedData?.durationSeconds ?? 0) || 0;
   const { formatted: durationFormatted, readable: durationReadable } = formatDuration(durationSeconds);
 
   const rawKeywords = Array.isArray(videoDetails.keywords)
@@ -1778,6 +1976,7 @@ async function fetchVideoDetails(videoId: string, isShortsUrl: boolean): Promise
     (typeof videoDetails.author === 'string' && videoDetails.author) ||
     (typeof microformat.ownerChannelName === 'string' && microformat.ownerChannelName) ||
     ownerName ||
+    embedData?.channelName ||
     oembedData?.author_name ||
     'Unknown Channel';
 
@@ -1852,9 +2051,16 @@ async function fetchVideoDetails(videoId: string, isShortsUrl: boolean): Promise
     handle: canonicalHandle && canonicalHandle.startsWith('@') ? canonicalHandle : null,
     url:
       oembedData?.author_url ||
+      embedData?.channelUrl ||
       (canonicalHandle ? `https://www.youtube.com/${canonicalHandle}` : null) ||
       (channelId ? `https://www.youtube.com/channel/${channelId}` : watchUrl),
-    avatarUrl: toProxyUrl(rawOwnerAvatar) ?? rawOwnerAvatar ?? extraChannel.avatarUrl ?? null,
+    avatarUrl:
+      toProxyUrl(rawOwnerAvatar) ??
+      rawOwnerAvatar ??
+      toProxyUrl(embedData?.avatarUrl ?? null) ??
+      embedData?.avatarUrl ??
+      extraChannel.avatarUrl ??
+      null,
     bannerUrl: extraChannel.bannerUrl ?? null,
     subscriberCount: ownerSubscribers ?? extraChannel.subscriberCount ?? null,
     videoCount: extraChannel.videoCount ?? null,
@@ -2255,6 +2461,54 @@ function extractVideoRenderersFromData(
       return;
     }
 
+    if (rec.shortsLockupViewModel && typeof rec.shortsLockupViewModel === 'object') {
+      const shorts = rec.shortsLockupViewModel as Record<string, unknown>;
+      const entityId = typeof shorts.entityId === 'string' ? shorts.entityId : '';
+      const rawNavId = (
+        (
+          (shorts.onTap as Record<string, unknown> | undefined)?.innertubeCommand as
+            | Record<string, unknown>
+            | undefined
+        )?.reelWatchEndpoint as Record<string, unknown> | undefined
+      )?.videoId;
+      const id =
+        (typeof rawNavId === 'string' && VIDEO_ID_REGEX.test(rawNavId) ? rawNavId : '') ||
+        (entityId.match(/([A-Za-z0-9_-]{11})$/)?.[1] ?? '');
+
+      if (VIDEO_ID_REGEX.test(id) && !seen.has(id)) {
+        const overlayMeta = shorts.overlayMetadata as Record<string, unknown> | undefined;
+        const title =
+          ((overlayMeta?.primaryText as Record<string, unknown> | undefined)?.content as
+            | string
+            | undefined) ||
+          (typeof shorts.accessibilityText === 'string' ? shorts.accessibilityText : '') ||
+          'YouTube Short';
+        const viewCountText =
+          ((overlayMeta?.secondaryText as Record<string, unknown> | undefined)?.content as
+            | string
+            | undefined) ?? null;
+        const thumbSources = (shorts.thumbnail as Record<string, unknown> | undefined)?.sources;
+        const rawThumb =
+          pickLargestThumbnail(thumbSources) ?? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
+        seen.add(id);
+        out.push({
+          videoId: id,
+          url: `https://www.youtube.com/shorts/${id}`,
+          title,
+          channelName: fallbackChannelName,
+          viewCountText,
+          viewCount: parseCompactViewCount(viewCountText),
+          publishedTimeText: null,
+          duration: 'Short',
+          thumbnailUrl:
+            toProxyUrl(rawThumb) ??
+            `/api/image-proxy?url=${encodeURIComponent(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`)}`,
+        });
+      }
+      return;
+    }
+
     for (const val of Object.values(rec)) {
       if (val && typeof val === 'object') {
         walk(val, depth - 1);
@@ -2277,21 +2531,51 @@ async function fetchTrendingVideos(category: string): Promise<TrendingVideoItem[
   const searchQuery = queryMap[category] ?? queryMap.all;
   const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}&sp=EgIQAQ%3D%3D&hl=en&gl=US`;
 
-  const resp = await fetch(url, {
-    headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(9000),
-  });
-  if (!resp.ok) {
-    throw new Error('Unable to reach YouTube trending feed.');
+  let initialData: Record<string, unknown> | null = null;
+  const htmlRes = await tryFetchHtml(url, BROWSER_HEADERS, 9000);
+  if (htmlRes.ok) {
+    initialData = extractBalancedJson(htmlRes.html, [
+      'var ytInitialData = ',
+      'window["ytInitialData"] = ',
+    ]);
   }
 
-  const html = await resp.text();
-  const initialData = extractBalancedJson(html, [
-    'var ytInitialData = ',
-    'window["ytInitialData"] = ',
-  ]);
   if (!initialData) {
-    throw new Error('Could not parse YouTube feed data.');
+    try {
+      const apiResp = await fetch('https://www.youtube.com/youtubei/v1/search?prettyPrint=false', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': BROWSER_HEADERS['User-Agent'],
+          'Accept-Language': 'en-US,en;q=0.9',
+          Origin: 'https://www.youtube.com',
+          Referer: 'https://www.youtube.com/',
+          Cookie: YT_CONSENT_COOKIE,
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'WEB',
+              clientVersion: INNERTUBE_CLIENT_VERSION,
+              hl: 'en',
+              gl: 'US',
+            },
+          },
+          query: searchQuery,
+          params: 'EgIQAQ%3D%3D',
+        }),
+        signal: AbortSignal.timeout(9000),
+      });
+      if (apiResp.ok) {
+        initialData = (await apiResp.json()) as Record<string, unknown>;
+      }
+    } catch {
+      initialData = null;
+    }
+  }
+
+  if (!initialData) {
+    throw new Error('Unable to reach YouTube trending feed.');
   }
 
   const items = extractVideoRenderersFromData(initialData, 14);
@@ -2302,14 +2586,18 @@ async function fetchTrendingVideos(category: string): Promise<TrendingVideoItem[
 }
 
 async function fetchChannelLookup(channelUrl: string): Promise<ChannelLookupResponse> {
-  const videosResp = await fetch(`${channelUrl}/videos?hl=en`, {
-    headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(9000),
-  });
-  if (!videosResp.ok) {
+  let pageRes = await tryFetchHtml(`${channelUrl}/videos?hl=en`, BROWSER_HEADERS, 9000);
+  if (!pageRes.ok || (!pageRes.html.includes('externalId') && !pageRes.html.includes('channelId'))) {
+    const homeRes = await tryFetchHtml(`${channelUrl}?hl=en`, BROWSER_HEADERS, 9000);
+    if (homeRes.ok) {
+      pageRes = homeRes;
+    }
+  }
+
+  if (!pageRes.ok) {
     throw new Error('Channel not found or unavailable.');
   }
-  const html = await videosResp.text();
+  const html = pageRes.html;
   const channelIdMatch =
     html.match(/"externalId":"(UC[A-Za-z0-9_-]{20,24})"/) ??
     html.match(/"channelId":"(UC[A-Za-z0-9_-]{20,24})"/);
@@ -2342,7 +2630,19 @@ async function fetchChannelLookup(channelUrl: string): Promise<ChannelLookupResp
     'YouTube Channel';
 
   const handleMatch = channelUrl.match(/\/(@[A-Za-z0-9._-]+)/);
-  const videos = initialData ? extractVideoRenderersFromData(initialData, 8, channelName) : [];
+  let videos = initialData ? extractVideoRenderersFromData(initialData, 8, channelName) : [];
+  if (videos.length === 0) {
+    const shortsRes = await tryFetchHtml(`${channelUrl}/shorts?hl=en`, BROWSER_HEADERS, 7000);
+    if (shortsRes.ok) {
+      const shortsData = extractBalancedJson(shortsRes.html, [
+        'var ytInitialData = ',
+        'window["ytInitialData"] = ',
+      ]);
+      if (shortsData) {
+        videos = extractVideoRenderersFromData(shortsData, 8, channelName);
+      }
+    }
+  }
 
   const channel: ChannelDetails = {
     id: channelId,
@@ -3363,6 +3663,8 @@ async function startServer() {
         appConfigStore.appStatus = body.appStatus;
       } else if (appConfigStore.maintenanceMode) {
         appConfigStore.appStatus = 'maintenance';
+      } else if (body.maintenanceMode === false && appConfigStore.appStatus === 'maintenance') {
+        appConfigStore.appStatus = 'operational';
       }
       if (typeof body.announcementEnabled === 'boolean') {
         appConfigStore.announcementEnabled = body.announcementEnabled;
@@ -3599,6 +3901,11 @@ async function startServer() {
       res.json(buildAdminDashboardSnapshot(req.auth?.jti ?? ''));
     }
   );
+
+  // Ensure unknown API endpoints always return JSON 404 instead of HTML SPA fallback
+  app.all('/api/*', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'API endpoint not found.' });
+  });
 
   // Prevent search engines from indexing private admin routes
   app.use(['/admin', '/admin/*'], (_req: Request, res: Response, next: NextFunction) => {

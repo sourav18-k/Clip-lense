@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { CreatorToolId, CreatorToolResult, VideoDetails } from '../types/video';
 import { SponsoredBanner } from './SponsoredBanner';
+import { safeReadJson } from '../utils/safeJson';
 
 interface ToolMeta {
   id: CreatorToolId;
@@ -187,9 +188,9 @@ export function ToolsHub({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: trimmed }),
         });
-        const data = (await resp.json()) as VideoDetails & { error?: string };
-        if (!resp.ok) {
-          throw new Error(data.error || 'Could not extract tags from this YouTube URL.');
+        const data = await safeReadJson<VideoDetails & { error?: string }>(resp);
+        if (!resp.ok || !data) {
+          throw new Error(data?.error || 'Could not extract tags from this YouTube URL.');
         }
 
         onVideoExtracted?.(data);
@@ -216,9 +217,9 @@ export function ToolsHub({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ toolId: selectedTool, input: trimmed }),
         });
-        const data = (await resp.json()) as CreatorToolResult & { error?: string };
-        if (!resp.ok) {
-          throw new Error(data.error || 'Unable to generate creator suggestions.');
+        const data = await safeReadJson<CreatorToolResult & { error?: string }>(resp);
+        if (!resp.ok || !data) {
+          throw new Error(data?.error || 'Unable to generate creator suggestions.');
         }
         setResult(data);
         onAiToolCompleted?.(selectedTool);
