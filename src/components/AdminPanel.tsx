@@ -48,6 +48,7 @@ import type {
   AdminTimeSeriesPoint,
   AdminUserRecord,
 } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 import { formatRemaining } from './admin/adminFormatters';
 import { AdminOverviewView } from './admin/AdminOverviewView';
 import { AdminAnalyticsView } from './admin/AdminAnalyticsView';
@@ -789,7 +790,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
               className="min-h-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.09] bg-[#090E0B] px-4 py-2 text-xs font-semibold text-[#C7D4CD] hover:bg-[#141E19] transition-all duration-200 smooth-ease"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              Return to ClipLens
+              Return to {APP_CONFIG.appName}
             </button>
           </div>
         </div>
@@ -804,7 +805,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
         <div className="max-w-md w-full mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <span className="font-display text-sm font-semibold text-[#94A69C]">
-              ClipLens Admin · Private Portal
+              {APP_CONFIG.appName} Admin · Private Portal
             </span>
             <button
               type="button"
@@ -812,7 +813,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
               className="min-h-[36px] inline-flex items-center gap-1.5 text-xs font-medium text-[#7E9288] hover:text-emerald-400 transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              Return to ClipLens
+              Return to {APP_CONFIG.appName}
             </button>
           </div>
 
@@ -993,7 +994,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
           </div>
           <div>
             <p className="font-display text-sm font-bold tracking-tight text-[#ECF3EF] leading-none">
-              ClipLens
+              {APP_CONFIG.appName}
             </p>
             <p className="text-[11px] font-medium text-emerald-400 mt-0.5 leading-none">
               Admin Console
@@ -1094,7 +1095,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
             </button>
 
             <div className="min-w-0 flex items-center gap-2 text-xs sm:text-sm">
-              <span className="hidden sm:inline text-[#7E9288] font-medium">ClipLens Admin</span>
+              <span className="hidden sm:inline text-[#7E9288] font-medium">{APP_CONFIG.appName} Admin</span>
               <span className="hidden sm:inline text-[#7E9288]" aria-hidden="true">
                 /
               </span>
@@ -1129,7 +1130,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
               className="min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-white/[0.09] bg-[#0D1310] px-3 py-1.5 text-xs font-semibold text-[#C7D4CD] hover:bg-[#141E19] hover:text-[#ECF3EF] transition-all whitespace-nowrap"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">ClipLens App</span>
+              <span className="hidden sm:inline">{APP_CONFIG.appName} App</span>
             </button>
           </div>
         </header>
@@ -1149,7 +1150,7 @@ export function AdminPanel({ onExitToApp }: AdminPanelProps) {
           {!snapshot && dataLoading && (
             <div className="py-16 flex items-center justify-center gap-2.5 text-xs text-[#94A69C]">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-400" aria-hidden="true" />
-              Loading ClipLens Admin telemetry...
+              Loading {APP_CONFIG.appName} Admin telemetry...
             </div>
           )}
 

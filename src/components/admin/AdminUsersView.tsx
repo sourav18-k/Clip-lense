@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, ShieldBan, ShieldCheck, X } from 'lucide-react';
 import type { AdminDashboardSnapshot, AdminUserRecord } from '../../types/video';
+import { APP_CONFIG } from '../../config/appConfig';
 import { formatCount, formatDateTime, formatShortDate } from './adminFormatters';
 
 export function AdminUsersView({
@@ -103,7 +104,7 @@ export function AdminUsersView({
         {filteredUsers.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#090E0B] px-4 py-10 text-center text-xs text-[#7E9288]">
             {snapshot.users.length === 0
-              ? 'No users registered in this session yet. Profiles appear automatically when users sign in on the ClipLens app.'
+              ? `No users registered in this session yet. Profiles appear automatically when users sign in on the ${APP_CONFIG.appName} app.`
               : 'No users match the current search or filter criteria.'}
           </div>
         ) : (

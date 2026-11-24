@@ -32,6 +32,7 @@ import type {
   VerifiedTransactionEntry,
   VideoDetails,
 } from './src/types/video.ts';
+import { APP_CONFIG } from './src/config/appConfig.ts';
 
 const INR_TO_USD_RATE = 84;
 const PLAN_PRICING = {
@@ -201,7 +202,7 @@ const failedAuthAttempts = new Map<
 >();
 
 const adminProfileStore = {
-  displayName: 'ClipLens Administrator',
+  displayName: `${APP_CONFIG.appName} Administrator`,
   email: '',
   lastLoginAt: null as string | null,
 };
@@ -2556,7 +2557,7 @@ async function startServer() {
   app.post('/api/payments/razorpay/create-order', async (req: Request, res: Response) => {
     const fbUser = await verifyFirebaseBearer(req);
     if (!fbUser) {
-      res.status(401).json({ error: 'Please sign in before purchasing ClipLens Premium.' });
+      res.status(401).json({ error: `Please sign in before purchasing ${APP_CONFIG.appName} Premium.` });
       return;
     }
     if (!fbUser.emailVerified) {
@@ -2915,7 +2916,7 @@ async function startServer() {
   app.post('/api/video-info', async (req: Request, res: Response) => {
     if (appConfigStore.maintenanceMode) {
       res.status(503).json({
-        error: 'ClipLens is temporarily in maintenance mode. Please try again shortly.',
+        error: `${APP_CONFIG.appName} is temporarily in maintenance mode. Please try again shortly.`,
       });
       return;
     }
@@ -2945,7 +2946,7 @@ async function startServer() {
   app.post('/api/channel-info', async (req: Request, res: Response) => {
     if (appConfigStore.maintenanceMode) {
       res.status(503).json({
-        error: 'ClipLens is temporarily in maintenance mode. Please try again shortly.',
+        error: `${APP_CONFIG.appName} is temporarily in maintenance mode. Please try again shortly.`,
       });
       return;
     }
@@ -2987,7 +2988,7 @@ async function startServer() {
   app.post('/api/tools/ai', async (req: Request, res: Response) => {
     if (appConfigStore.maintenanceMode) {
       res.status(503).json({
-        error: 'ClipLens is temporarily in maintenance mode. Please try again shortly.',
+        error: `${APP_CONFIG.appName} is temporarily in maintenance mode. Please try again shortly.`,
       });
       return;
     }

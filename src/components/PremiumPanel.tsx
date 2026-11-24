@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertCircle, Check, Crown, Loader2, ShieldCheck, Zap, Ban } from 'lucide-react';
 import type { PaymentConfigStatus } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 
 interface PremiumPanelProps {
   isPremium: boolean;
@@ -49,7 +50,7 @@ export function PremiumPanel({
     }
     if (!razorpayReady) {
       setCheckoutError(
-        'Online payment checkout is not enabled yet. You can continue using all ClipLens tools for free by watching a short 5-second ad in the inspector.'
+        `Online payment checkout is not enabled yet. You can continue using all ${APP_CONFIG.appName} tools for free by watching a short 5-second ad in the inspector.`
       );
       return;
     }
@@ -82,7 +83,7 @@ export function PremiumPanel({
           </div>
           <div className="space-y-1">
             <h2 className="font-display text-xl sm:text-2xl font-bold text-[#ECF3EF]">
-              {isPremium ? 'ClipLens Premium Active' : 'ClipLens Free Plan'}
+              {isPremium ? `${APP_CONFIG.appName} Premium Active` : `${APP_CONFIG.appName} Free Plan`}
             </h2>
             <p className="text-xs sm:text-sm text-[#94A69C]">
               {isPremium
@@ -144,7 +145,7 @@ export function PremiumPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-display text-lg sm:text-xl font-bold text-[#ECF3EF]">
-                  ClipLens Premium
+                  {APP_CONFIG.appName} Premium
                 </h3>
                 <p className="text-xs text-[#7E9288] mt-0.5">
                   Built for creators, editors, and researchers

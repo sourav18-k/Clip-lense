@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { Globe } from 'lucide-react';
 import type { AdminDashboardSnapshot } from '../../types/video';
+import { APP_CONFIG } from '../../config/appConfig';
 import { AdminKpiCard, IntegrationNoticeBanner, formatCount } from './adminFormatters';
 
 type AnalyticsRange = '7d' | '30d' | '90d' | '1y';
@@ -71,7 +72,7 @@ export function AdminAnalyticsView({ snapshot }: { snapshot: AdminDashboardSnaps
         <AdminKpiCard
           label="Total Registered Users"
           value={formatCount(kpis.totalUsers)}
-          subtext="Synced ClipLens profiles"
+          subtext={`Synced ${APP_CONFIG.appName} profiles`}
         />
         <AdminKpiCard
           label="Daily Active Users (DAU)"
@@ -169,7 +170,7 @@ export function AdminAnalyticsView({ snapshot }: { snapshot: AdminDashboardSnaps
           <div>
             <h2 className="font-display text-base font-semibold text-[#ECF3EF]">Feature Usage</h2>
             <p className="text-xs text-[#7E9288]">
-              Live request counts per ClipLens tool &amp; analyzer endpoint
+              Live request counts per {APP_CONFIG.appName} tool &amp; analyzer endpoint
             </p>
           </div>
 

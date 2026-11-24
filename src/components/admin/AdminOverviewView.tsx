@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import type { AdminDashboardSnapshot, AdminTimeSeriesPoint } from '../../types/video';
+import { APP_CONFIG } from '../../config/appConfig';
 import {
   AdminKpiCard,
   IntegrationNoticeBanner,
@@ -370,7 +371,7 @@ export function AdminOverviewView({
 
           {snapshot.users.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#090E0B] px-4 py-8 text-center text-xs text-[#7E9288]">
-              No registered users yet. Users appear here once they sign in via the ClipLens profile drawer.
+              No registered users yet. Users appear here once they sign in via the {APP_CONFIG.appName} profile drawer.
             </div>
           ) : (
             <div className="divide-y divide-white/[0.06]">

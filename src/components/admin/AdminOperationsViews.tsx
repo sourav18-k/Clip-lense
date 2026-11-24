@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { Bell, CheckCircle2, Loader2, Save, Trash2 } from 'lucide-react';
 import type { AdminAppConfig, AdminDashboardSnapshot } from '../../types/video';
+import { APP_CONFIG } from '../../config/appConfig';
 import {
   AdminKpiCard,
   IntegrationNoticeBanner,
@@ -63,7 +64,7 @@ export function AdminAdvertisementsView({ snapshot }: { snapshot: AdminDashboard
       {!snapshot.integrations.adNetworkConnected && (
         <IntegrationNoticeBanner
           title="Google AdSense (Optional · Not Yet Connected)"
-          description="Banner impressions and rewarded ad completions are tracked live by ClipLens. Add Google AdSense credentials whenever you are ready to display network ads and sync external click/CTR earnings."
+          description={`Banner impressions and rewarded ad completions are tracked live by ${APP_CONFIG.appName}. Add Google AdSense credentials whenever you are ready to display network ads and sync external click/CTR earnings.`}
         />
       )}
 
@@ -185,7 +186,7 @@ export function AdminAppManagementView({
           App Management
         </h1>
         <p className="text-xs sm:text-sm text-[#94A69C] mt-0.5">
-          Control ClipLens availability, public announcements, feature switches, and usage limits.
+          Control {APP_CONFIG.appName} availability, public announcements, feature switches, and usage limits.
         </p>
       </div>
 
@@ -253,7 +254,7 @@ export function AdminAppManagementView({
                 Show Public Announcement Banner
               </p>
               <p className="text-xs text-[#7E9288] mt-0.5">
-                Displays a top notice inside the ClipLens workspace when enabled.
+                Displays a top notice inside the {APP_CONFIG.appName} workspace when enabled.
               </p>
             </div>
             <input
@@ -416,7 +417,7 @@ export function AdminNotificationsView({
       <div>
         <h1 className="font-display text-xl sm:text-2xl font-bold text-[#ECF3EF]">Notifications</h1>
         <p className="text-xs sm:text-sm text-[#94A69C] mt-0.5">
-          Publish targeted user notifications and manage active ClipLens notices.
+          Publish targeted user notifications and manage active {APP_CONFIG.appName} notices.
         </p>
       </div>
 
@@ -459,7 +460,7 @@ export function AdminNotificationsView({
               required
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Write a concise update for ClipLens users..."
+              placeholder={`Write a concise update for ${APP_CONFIG.appName} users...`}
               className="w-full rounded-xl border border-white/[0.09] bg-[#070B09] p-3 text-xs sm:text-sm text-[#ECF3EF] placeholder:text-[#7E9288] focus:border-emerald-500/50 focus:outline-none"
             />
           </div>

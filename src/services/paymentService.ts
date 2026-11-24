@@ -4,6 +4,7 @@ import type {
   RazorpayCreateOrderResponse,
   VerifiedEntitlementResponse,
 } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 
 interface RazorpayHandlerResponse {
   razorpay_order_id: string;
@@ -107,7 +108,7 @@ export async function startRazorpayPremiumCheckout(
 ): Promise<VerifiedEntitlementResponse> {
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    throw new Error('Sign in with your ClipLens account (menu top-right) before upgrading to Premium.');
+    throw new Error(`Sign in with your ${APP_CONFIG.appName} account (menu top-right) before upgrading to Premium.`);
   }
   if (!currentUser.emailVerified) {
     throw new Error('Verify your email address before completing a subscription payment.');
@@ -146,11 +147,11 @@ export async function startRazorpayPremiumCheckout(
       key: orderPayload.keyId!,
       amount: orderPayload.amountPaise!,
       currency: orderPayload.currency!,
-      name: 'ClipLens Premium',
+      name: `${APP_CONFIG.appName} Premium`,
       description:
         plan === 'annual'
-          ? 'ClipLens Premium Annual Plan (₹3,299/yr)'
-          : 'ClipLens Premium Monthly Plan (₹399/mo)',
+          ? `${APP_CONFIG.appName} Premium Annual Plan (₹3,299/yr)`
+          : `${APP_CONFIG.appName} Premium Monthly Plan (₹399/mo)`,
       order_id: orderPayload.orderId!,
       prefill: {
         name: currentUser.displayName || undefined,

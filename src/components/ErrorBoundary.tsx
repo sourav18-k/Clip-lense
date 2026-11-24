@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { APP_CONFIG } from '../config/appConfig';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -30,7 +31,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('ClipLens ErrorBoundary caught:', error, info);
+    console.error(`${APP_CONFIG.appName} ErrorBoundary caught:`, error, info);
   }
 
   render() {
@@ -55,7 +56,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               className="w-full min-h-[42px] inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 transition-colors"
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Reload ClipLens
+              Reload {APP_CONFIG.appName}
             </button>
           </div>
         </div>

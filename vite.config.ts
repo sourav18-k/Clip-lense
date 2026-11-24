@@ -3,12 +3,44 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {APP_CONFIG} from './src/config/appConfig.ts';
+
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 export default defineConfig(() => {
+  const fullTitle = `${APP_CONFIG.appName} — ${APP_CONFIG.appTagline}`;
+  const safeTitle = escapeHtmlAttr(fullTitle);
+  const safeDesc = escapeHtmlAttr(APP_CONFIG.appDescription);
+
   return {
     plugins: [
       react(),
       tailwindcss(),
+      {
+        name: 'inject-app-branding',
+        transformIndexHtml(html: string): string {
+          return html
+            .replace(/<title>.*?<\/title>/s, `<title>${safeTitle}</title>`)
+            .replace(
+              /(<meta\s+property="og:title"\s+content=")[^"]*(")/i,
+              `$1${safeTitle}$2`
+            )
+            .replace(
+              /(<meta\s+name="description"\s+content=")[^"]*(")/i,
+              `$1${safeDesc}$2`
+            )
+            .replace(
+              /(<meta\s+property="og:description"\s+content=")[^"]*(")/i,
+              `$1${safeDesc}$2`
+            );
+        },
+      },
       // Copies src/assets into dist/ so root-relative URLs like
       // "/src/assets/images/..." (e.g. generate_image output) still resolve
       // in production builds. Do not remove.

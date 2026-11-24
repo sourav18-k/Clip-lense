@@ -43,6 +43,7 @@ import {
   fetchVerifiedEntitlement,
   startRazorpayPremiumCheckout,
 } from './services/paymentService';
+import { APP_CONFIG } from './config/appConfig';
 import { VideoOverview } from './components/VideoOverview';
 import { ThumbnailsPanel } from './components/ThumbnailsPanel';
 import { ChannelPanel } from './components/ChannelPanel';
@@ -80,21 +81,6 @@ function looksLikeChannelInput(rawInput: string): boolean {
     trimmed
   );
 }
-
-const SAMPLE_LINKS = [
-  {
-    label: '3Blue1Brown · Neural Networks',
-    url: 'https://www.youtube.com/watch?v=aircAruvnKk',
-  },
-  {
-    label: 'Blender · Big Buck Bunny 4K',
-    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
-  },
-  {
-    label: 'YouTube Developers · Player API',
-    url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
-  },
-];
 
 function loadHistory(): VideoDetails[] {
   try {
@@ -151,6 +137,17 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    const nextTitle = inAdminRoute
+      ? `${APP_CONFIG.appName} Admin`
+      : `${APP_CONFIG.appName} — ${APP_CONFIG.appTagline}`;
+    document.title = nextTitle;
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) {
+      ogTitle.setAttribute('content', nextTitle);
+    }
+  }, [inAdminRoute]);
 
   useEffect(() => {
     if (inAdminRoute) return;
@@ -534,11 +531,6 @@ export default function App() {
     inputRef.current?.focus();
   };
 
-  const handleSelectSample = (sampleUrl: string) => {
-    setUrlInput(sampleUrl);
-    requestInspect(sampleUrl);
-  };
-
   const handleAdCompleted = () => {
     const target = pendingInspectUrl;
     setAdGateOpen(false);
@@ -557,7 +549,7 @@ export default function App() {
       expiresAt: entitlement.expiresAt,
     });
     if (entitlement.isPremium) {
-      showToast(`ClipLens Premium (${plan}) verified & activated!`);
+      showToast(`${APP_CONFIG.appName} Premium (${plan}) verified & activated!`);
       if (adGateOpen) {
         const target = pendingInspectUrl;
         setAdGateOpen(false);
@@ -632,11 +624,11 @@ export default function App() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: 'ClipLens — YouTube Creator Tools & Video Inspector',
-          text: 'Inspect YouTube video details, tags, thumbnails, and AI creator tools with ClipLens.',
+          title: `${APP_CONFIG.appName} — ${APP_CONFIG.creatorToolsTagline}`,
+          text: `Inspect YouTube video details, tags, thumbnails, and AI creator tools with ${APP_CONFIG.appName}.`,
           url: shareUrl,
         });
-        showToast('Shared ClipLens link');
+        showToast(`Shared ${APP_CONFIG.appName} link`);
         return;
       }
     } catch {
@@ -807,7 +799,7 @@ export default function App() {
             }}
             className="font-display text-xl font-bold tracking-tight text-[#ECF3EF] hover:text-emerald-400 transition-colors duration-200 smooth-ease whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-md"
           >
-            ClipLens
+            {APP_CONFIG.appName}
           </button>
 
           <nav aria-label="Primary navigation" className="flex items-center gap-7">
@@ -874,7 +866,7 @@ export default function App() {
           }}
           className="font-display text-lg font-bold tracking-tight text-[#ECF3EF] whitespace-nowrap shrink-0"
         >
-          ClipLens
+          {APP_CONFIG.appName}
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -915,7 +907,7 @@ export default function App() {
             role="status"
             className="rounded-2xl border border-amber-500/30 bg-amber-950/35 px-4 py-3 text-xs sm:text-sm text-amber-100"
           >
-            ClipLens is currently in scheduled maintenance mode. Some live lookups may be temporarily paused.
+            {APP_CONFIG.appName} is currently in scheduled maintenance mode. Some live lookups may be temporarily paused.
           </div>
         )}
         {!publicConfig?.maintenanceMode &&
@@ -995,27 +987,27 @@ export default function App() {
             </button>
           </form>
 
-          {/* Sample quick-fill options & desktop keyboard shortcut hint */}
+          {/* Key capabilities & desktop keyboard shortcut hint */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#7E9288]">
-              <span className="font-medium text-[#94A69C]">Try a sample:</span>
-              {SAMPLE_LINKS.map((sample) => (
-                <button
-                  key={sample.url}
-                  type="button"
-                  onClick={() => handleSelectSample(sample.url)}
-                  disabled={loading}
-                  className="min-h-[36px] text-left font-medium text-[#94A69C] underline decoration-white/15 underline-offset-4 hover:text-emerald-400 hover:decoration-emerald-400/50 transition-colors duration-200 smooth-ease whitespace-nowrap"
-                >
-                  {sample.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[#94A69C]">
+              <span className="inline-flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span>Find video titles, descriptions &amp; tags</span>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span>Explore your favourite creators&apos; video tags</span>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span>View thumbnails, video duration &amp; channel details</span>
+              </span>
             </div>
 
             <button
               type="button"
               onClick={() => setShortcutsOpen(true)}
-              className="hidden md:inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#090E0B] px-2.5 py-1 text-[11px] font-medium text-[#94A69C] hover:bg-[#141E19] hover:text-[#ECF3EF] transition-all duration-200 smooth-ease whitespace-nowrap shrink-0"
+              className="hidden md:inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300 transition-all duration-200 smooth-ease whitespace-nowrap shrink-0"
             >
               <Keyboard className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
               <span>Ctrl+Enter Inspect · Ctrl+S Save · ?</span>

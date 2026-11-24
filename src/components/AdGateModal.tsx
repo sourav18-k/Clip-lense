@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, Crown, Loader2, Play, X, Check, ArrowRight, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import type { PaymentConfigStatus } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 
 interface AdGateModalProps {
   isOpen: boolean;
@@ -122,7 +123,7 @@ export function AdGateModal({
             >
               {stage === 'choose' && 'Choose How to Inspect'}
               {stage === 'watching-ad' && 'Sponsored Video Ad'}
-              {stage === 'upgrade' && 'Upgrade to ClipLens Premium'}
+              {stage === 'upgrade' && `Upgrade to ${APP_CONFIG.appName} Premium`}
             </h2>
             {stage === 'choose' && (
               <p className="text-xs text-[#7E9288] mt-0.5 truncate max-w-[260px] sm:max-w-sm">
@@ -322,7 +323,7 @@ export function AdGateModal({
             <div className="rounded-2xl border border-white/[0.08] bg-[#090E0B] p-4 sm:p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-display text-base font-bold text-[#ECF3EF]">
-                  ClipLens Premium
+                  {APP_CONFIG.appName} Premium
                 </span>
                 <span className="font-mono text-lg font-bold text-emerald-400 tabular-nums">
                   {paymentConfig?.razorpayConfigured

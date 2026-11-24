@@ -31,6 +31,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import type { ActiveTab, CreatorToolId, UserProfile } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 
 type DrawerSubView = 'main' | 'rate' | 'more-apps' | 'help';
 type AuthMode = 'signin' | 'signup' | 'reset';
@@ -660,7 +661,7 @@ export function ProfileDrawer({
                   >
                     <span className="inline-flex items-center gap-3 text-sm font-semibold text-[#ECF3EF]">
                       <ThumbsUp className="h-4 w-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                      Rate ClipLens
+                      Rate {APP_CONFIG.appName}
                     </span>
                     <ChevronRight className="h-4 w-4 text-[#7E9288]" aria-hidden="true" />
                   </button>
@@ -714,7 +715,7 @@ export function ProfileDrawer({
                 <ThumbsUp className="h-8 w-8 text-emerald-400 mx-auto" aria-hidden="true" />
                 <div className="space-y-1">
                   <h3 className="font-display text-base font-bold text-[#ECF3EF]">
-                    Enjoying ClipLens?
+                    Enjoying {APP_CONFIG.appName}?
                   </h3>
                   <p className="text-xs text-[#899C92]">
                     Tap a star rating below to record your feedback.
@@ -743,7 +744,7 @@ export function ProfileDrawer({
                 {ratingSubmitted && (
                   <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
                     <Check className="h-4 w-4" aria-hidden="true" />
-                    Thank you for rating ClipLens {rating}/5!
+                    Thank you for rating {APP_CONFIG.appName} {rating}/5!
                   </p>
                 )}
               </div>
@@ -766,7 +767,7 @@ export function ProfileDrawer({
                   Creator Modules
                 </h3>
                 <p className="text-xs text-[#899C92]">
-                  Jump directly to any built-in ClipLens tool.
+                  Jump directly to any built-in {APP_CONFIG.appName} tool.
                 </p>
               </div>
 
@@ -841,7 +842,7 @@ export function ProfileDrawer({
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-white/[0.06] text-center text-xs text-[#7E9288] shrink-0">
-          Version 1.10.0
+          Version {APP_CONFIG.version}
         </div>
       </aside>
     </div>

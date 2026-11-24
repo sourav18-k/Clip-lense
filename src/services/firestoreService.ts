@@ -33,6 +33,7 @@ import type {
   VerifiedTransactionEntry,
   VideoDetails,
 } from '../types/video';
+import { APP_CONFIG } from '../config/appConfig';
 
 function isAdminRoleValue(role: unknown): boolean {
   return typeof role === 'string' && role.trim().toLowerCase() === 'admin';
@@ -163,7 +164,7 @@ export function subscribeToUserRoleAndStatus(
 export async function syncAuthenticatedUserToFirestore(user: User): Promise<AuthUserState> {
   const uid = user.uid;
   const email = (user.email || '').trim().toLowerCase();
-  const displayName = (user.displayName || email.split('@')[0] || 'ClipLens User').slice(0, 80);
+  const displayName = (user.displayName || email.split('@')[0] || `${APP_CONFIG.appName} User`).slice(0, 80);
   const photoURL = user.photoURL ? user.photoURL.slice(0, 500) : undefined;
 
   const userRef = doc(db, 'users', uid);

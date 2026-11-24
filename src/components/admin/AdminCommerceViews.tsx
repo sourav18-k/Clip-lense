@@ -5,6 +5,7 @@ import type {
   AdminTransactionRecord,
   AdminUserRecord,
 } from '../../types/video';
+import { APP_CONFIG } from '../../config/appConfig';
 import {
   AdminKpiCard,
   IntegrationNoticeBanner,
@@ -39,7 +40,7 @@ export function AdminSubscriptionsView({ snapshot }: { snapshot: AdminDashboardS
       <div>
         <h1 className="font-display text-xl sm:text-2xl font-bold text-[#ECF3EF]">Subscriptions</h1>
         <p className="text-xs sm:text-sm text-[#94A69C] mt-0.5">
-          Track monthly and annual ClipLens Premium activations and subscriber lifecycle status.
+          Track monthly and annual {APP_CONFIG.appName} Premium activations and subscriber lifecycle status.
         </p>
       </div>
 
@@ -85,7 +86,7 @@ export function AdminSubscriptionsView({ snapshot }: { snapshot: AdminDashboardS
               Subscriber Directory
             </h2>
             <p className="text-xs text-[#7E9288]">
-              Signed-in profiles that activated a ClipLens Premium plan
+              Signed-in profiles that activated a {APP_CONFIG.appName} Premium plan
             </p>
           </div>
           <select
@@ -247,7 +248,7 @@ export function AdminTransactionsView({ snapshot }: { snapshot: AdminDashboardSn
       {!snapshot.integrations.paymentGatewayConnected && (
         <IntegrationNoticeBanner
           title="Live Payment Gateway: Data not connected"
-          description="Rows below represent in-app subscription upgrade activations tracked by ClipLens. Connect Stripe or Play Billing webhooks to capture external card/wallet settlement receipts."
+          description={`Rows below represent in-app subscription upgrade activations tracked by ${APP_CONFIG.appName}. Connect Stripe or Play Billing webhooks to capture external card/wallet settlement receipts.`}
         />
       )}
 
